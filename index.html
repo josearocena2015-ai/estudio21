@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudio Jurídico 21</title>
+  <meta name="description" content="Estudio Jurídico 21 – Agenda online para reuniones y presupuestos con cupos limitados." />
+  <style>
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; background:#f4f6f8; color:#1f2933; }
+    header { background:#0f172a; color:#fff; padding:2rem 1rem; text-align:center; }
+    section { max-width:1100px; margin:auto; padding:3rem 1.5rem; }
+    h2 { color:#0f172a; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:2rem; }
+    .card { background:#fff; padding:2rem; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); }
+    label { display:block; margin-top:1rem; font-weight:bold; font-size:.9rem; }
+    input, select, textarea { width:100%; padding:.6rem; margin-top:.4rem; border-radius:6px; border:1px solid #cbd5e1; }
+    textarea { resize:vertical; min-height:100px; }
+    button { margin-top:1.5rem; padding:.8rem 1.5rem; background:#0f172a; color:#fff; border:none; border-radius:8px; cursor:pointer; }
+    button:disabled { background:#64748b; cursor:not-allowed; }
+    footer { background:#020617; color:#cbd5e1; text-align:center; padding:1.5rem; font-size:.85rem; }
+    .estado { margin-top:1rem; font-size:.9rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Estudio Jurídico 21</h1>
+  <p>Solicitud de reuniones y presupuestos (máx. 6 cupos diarios)</p>
+</header>
+
+<section>
+  <h2>Solicitar hora</h2>
+  <div class="grid">
+
+    <div class="card">
+      <form id="agendaForm">
+        <label>Nombre y apellido</label>
+        <input type="text" id="nombre" required />
+
+        <label>Email</label>
+        <input type="email" id="email" required />
+
+        <label>Celular</label>
+        <input type="tel" id="celular" />
+
+        <label>Tipo de consulta</label>
+        <select id="tipo">
+          <option value="presencial">Reunión presencial</option>
+          <option value="virtual">Reunión virtual (Google Meet)</option>
+          <option value="presupuesto">Solicitud de presupuesto</option>
+        </select>
+
+        <label>Fecha</label>
+        <input type="date" id="fecha" required />
+
+        <label>Horario disponible (9:00 a 18:00)</label>
+        <select id="hora"></select>
+
+        <label>Mensaje</label>
+        <textarea id="mensaje"></textarea>
+
+        <button type="submit">Solicitar turno</button>
+        <p id="estado" class="estado"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Contacto</h2>
+      <p><strong>Dirección:</strong><br>21 de Setiembre 2792 bis<br>Montevideo, Uruguay</p>
+      <p><strong>Email:</strong><br><a href="mailto:gjubin67@gmail.com">gjubin67@gmail.com</a></p>
+      <p><strong>Celular:</strong><br><a href="tel:+59899639697">+598 99 639 697</a></p>
+      <p><strong>Teléfono:</strong><br><a href="tel:+59827115669">+598 2711 5669</a></p>
+      <p><strong>Horario de atención:</strong><br>Lunes a Viernes – 9:00 a 18:00</p>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  © 2026 Estudio Jurídico 21
+</footer>
+
+<script>
+const horaSelect = document.getElementById('hora');
+const fechaInput = document.getElementById('fecha');
+const estado = document.getElementById('estado');
+
+const HORAS = [9,10,11,12,13,14,15,16,17];
+const MAX_CUPOS = 6;
+
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyNIPnS5vLnVCy2R6xoGgFAdEKbYwRxy0FBk5yMYVUJyqU1Rek5xPqML0CVxakj4vE1tA/exec";
+
+function cargarHoras() {
+  horaSelect.innerHTML = '';
+  HORAS.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h;
+    opt.textContent = `${h}:00`;
+    horaSelect.appendChild(opt);
+  });
+}
+
+function cuposTomados(fecha) {
+  const data = JSON.parse(localStorage.getItem('agenda') || '{}');
+  return data[fecha]?.length || 0;
+}
+
+fechaInput.addEventListener('change', () => {
+  const fecha = fechaInput.value;
+  const tomados = cuposTomados(fecha);
+  if (tomados >= MAX_CUPOS) {
+    estado.textContent = 'No hay cupos disponibles para este día.';
+    horaSelect.disabled = true;
+  } else {
+    estado.textContent = `Cupos disponibles: ${MAX_CUPOS - tomados}`;
+    horaSelect.disabled = false;
+  }
+});
+
+cargarHoras();
+
+document.getElementById('agendaForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const fecha = fechaInput.value;
+  const data = JSON.parse(localStorage.getItem('agenda') || '{}');
+  data[fecha] = data[fecha] || [];
+
+  if (data[fecha].length >= MAX_CUPOS) {
+    estado.textContent = 'Cupos agotados para este día.';
+    return;
+  }
+
+  const payload = {
+    nombre: nombre.value,
+    email: email.value,
+    celular: celular.value,
+    tipo: tipo.value,
+    fecha: fecha,
+    hora: horaSelect.value,
+    mensaje: mensaje.value
+  };
+
+  estado.textContent = 'Confirmando turno...';
+
+  try {
+    await fetch(URL_SCRIPT, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    data[fecha].push({ hora: horaSelect.value });
+    localStorage.setItem('agenda', JSON.stringify(data));
+
+    estado.textContent = 'Turno confirmado. Se envió la confirmación por email.';
+    e.target.reset();
+
+  } catch (err) {
+    estado.textContent = 'Error al confirmar el turno.';
+  }
+});
+</script>
+
+</body>
+</html>
